@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercal S.A. — Dashboard de Producción</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap');
+:root {
+  --red:#C8102E; --red-dk:#9B0B22; --red-lt:rgba(200,16,46,.1);
+  --white:#FFFFFF; --offwhite:#F5F4F2; --gray-50:#F0EEE9; --gray-100:#DDDAD3;
+  --gray-300:#B0ABA0; --gray-500:#747068; --gray-700:#3A3730; --gray-900:#1E1C18;
+  --border:#E0DDD6; --muted:#747068;
+  --font-h:'Barlow Condensed',sans-serif; --font-b:'Barlow',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--offwhite);color:var(--gray-900);font-family:var(--font-b);font-size:14px;}
+
+/* HEADER */
+.header{background:var(--gray-900);padding:0 32px;display:flex;align-items:stretch;height:64px;position:sticky;top:0;z-index:200;border-bottom:3px solid var(--red);}
+.header-logo{display:flex;align-items:center;margin-right:32px;}
+.logo-bars{display:flex;gap:3px;align-items:center;margin-right:12px;}
+.logo-bar{width:8px;background:var(--red);border-radius:1px;}
+.logo-bar:nth-child(1){height:20px;}.logo-bar:nth-child(2){height:28px;}.logo-bar:nth-child(3){height:20px;}
+.logo-text{font-family:var(--font-h);font-size:22px;font-weight:800;color:#fff;letter-spacing:3px;}
+.logo-text span{color:var(--red);}
+.hdiv{width:1px;background:rgba(255,255,255,.15);margin:12px 0;}
+.htitle{display:flex;flex-direction:column;justify-content:center;padding-left:24px;}
+.htitle h1{font-family:var(--font-h);font-size:16px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.9);}
+.htitle p{font-size:11px;color:rgba(255,255,255,.4);letter-spacing:.5px;margin-top:2px;}
+.hright{margin-left:auto;display:flex;align-items:center;gap:16px;}
+.hdate{font-size:11px;color:rgba(255,255,255,.4);}
+.hstatus{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:3px;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);}
+.hstatus .dot{width:7px;height:7px;border-radius:50%;background:var(--gray-300);}
+.hstatus.ok .dot{background:#4ade80;box-shadow:0 0 6px #4ade80;}
+.hstatus.err .dot{background:var(--red);}
+
+/* LOADING */
+.loading{position:fixed;inset:0;background:var(--offwhite);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px;}
+.loading-logo{display:flex;gap:4px;align-items:flex-end;}
+.loading-bar{width:10px;background:var(--red);border-radius:2px;animation:pulse 1s ease-in-out infinite;}
+.loading-bar:nth-child(1){height:24px;animation-delay:0s;}
+.loading-bar:nth-child(2){height:34px;animation-delay:.15s;}
+.loading-bar:nth-child(3){height:24px;animation-delay:.3s;}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+.loading p{font-family:var(--font-h);font-size:14px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.loading small{font-size:11px;color:var(--gray-300);}
+
+/* FILTERS */
+.filters-bar{background:var(--white);border-bottom:1px solid var(--border);padding:10px 32px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
+.fl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;}
+select{background:var(--gray-50);border:1px solid var(--border);color:var(--gray-900);padding:5px 10px;border-radius:3px;font-family:var(--font-b);font-size:12px;cursor:pointer;outline:none;transition:border-color .15s;}
+select:focus{border-color:var(--red);}
+.btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:3px;font-family:var(--font-b);font-size:11px;cursor:pointer;transition:all .15s;}
+.btn:hover{border-color:var(--red);color:var(--red);}
+.btn-refresh{border-color:var(--red);color:var(--red);}
+.btn-refresh:hover{background:var(--red);color:#fff;}
+.fcount{font-size:11px;color:var(--muted);margin-left:6px;}
+
+/* MAIN */
+.main{padding:24px 32px;display:flex;flex-direction:column;gap:20px;max-width:1600px;margin:0 auto;}
+
+/* SECTION */
+.sec{font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;}
+.sec::before{content:'';width:16px;height:3px;background:var(--red);border-radius:1px;flex-shrink:0;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:18px 20px;border-left:3px solid var(--gray-100);transition:border-left-color .2s;}
+.kpi:hover{border-left-color:var(--red);}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:8px;}
+.kpi-val{font-family:var(--font-h);font-size:38px;font-weight:800;color:var(--gray-900);line-height:1;letter-spacing:-1px;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;}
+
+/* CARD */
+.card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:20px;}
+.card-title{font-family:var(--font-h);font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray-700);}
+.card-sub{font-size:11px;color:var(--muted);margin-top:3px;margin-bottom:16px;}
+
+/* GRIDS */
+.g2{display:grid;grid-template-columns:2fr 1fr;gap:18px;}
+.g2b{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+
+/* TEORICA */
+.teo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:12px;}
+.teo-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:14px 16px;border-top:3px solid var(--red);}
+.teo-maq{font-family:var(--font-h);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.teo-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+.teo-lbl{font-size:10px;color:var(--muted);}
+.teo-val{font-family:var(--font-h);font-size:20px;font-weight:800;color:var(--gray-900);}
+.teo-val-obj{font-family:var(--font-h);font-size:18px;font-weight:700;color:var(--red);}
+.teo-note{font-size:10px;color:var(--gray-300);margin-top:6px;line-height:1.4;}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:600;font-family:var(--font-h);padding:8px 12px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--gray-50);}
+tr:hover td{background:var(--gray-50);}
+.maq-badge{display:inline-block;background:var(--gray-900);color:#fff;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:600;letter-spacing:.8px;font-family:var(--font-h);}
+.bar-mini{height:3px;border-radius:2px;background:var(--red);margin-top:4px;}
+.vs-up{color:#16a34a;font-weight:700;}
+.vs-dn{color:var(--red);font-weight:700;}
+.vs-ok{color:var(--gray-500);font-weight:600;}
+
+/* ERROR BANNER */
+.error-banner{background:rgba(200,16,46,.08);border:1px solid rgba(200,16,46,.3);border-radius:4px;padding:12px 16px;font-size:12px;color:var(--red);display:none;}
+
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}
+.g2,.g2b{grid-template-columns:1fr;}}
+@media(max-width:768px){.kpi-row{grid-template-columns:repeat(2,1fr);}
+.main{padding:16px;}.filters-bar{padding:8px 16px;}.header{padding:0 16px;}}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading" id="loadingScreen">
+  <div class="loading-logo">
+    <div class="loading-bar"></div>
+    <div class="loading-bar"></div>
+    <div class="loading-bar"></div>
+  </div>
+  <p>Mercal S.A.</p>
+  <small>Cargando datos desde Google Sheets…</small>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">
+    <div class="logo-bars"><div class="logo-bar"></div><div class="logo-bar"></div><div class="logo-bar"></div></div>
+    <div class="logo-text">MERCAL<span>.</span></div>
+  </div>
+  <div class="hdiv"></div>
+  <div class="htitle">
+    <h1>Dashboard de Producción</h1>
+    <p>Datos en vivo desde Google Sheets · Packaging de cartón</p>
+  </div>
+  <div class="hright">
+    <div class="hstatus" id="statusBadge"><div class="dot"></div><span id="statusTxt">Conectando…</span></div>
+    <div class="hdate" id="lastReg"></div>
+  </div>
+</header>
+
+<!-- FILTERS -->
+<div class="filters-bar">
+  <span class="fl">Filtrar por</span>
+  <select id="fMaq"><option value="">Todas las máquinas</option></select>
+  <select id="fYear"><option value="">Todos los años</option></select>
+  <select id="fMonth"><option value="">Todos los meses</option></select>
+  <select id="fCliente"><option value="">Todos los clientes</option></select>
+  <button class="btn" onclick="resetF()">✕ Limpiar</button>
+  <button class="btn btn-refresh" onclick="loadData()">↻ Actualizar</button>
+  <span class="fcount" id="fCount"></span>
+</div>
+
+<div class="main" id="mainContent" style="display:none">
+  <div class="error-banner" id="errBanner"></div>
+
+  <!-- KPIs -->
+  <div class="sec">Resumen del período</div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Registros</div><div class="kpi-val" id="kReg">—</div><div class="kpi-sub" id="kClientes">—</div></div>
+    <div class="kpi"><div class="kpi-label">Horas trabajadas</div><div class="kpi-val" id="kHoras">—</div><div class="kpi-sub">horas totales</div></div>
+    <div class="kpi"><div class="kpi-label">Prod/hora promedio</div><div class="kpi-val" id="kPPH">—</div><div class="kpi-sub">unidades por hora</div></div>
+    <div class="kpi"><div class="kpi-label">Mejor mes</div><div class="kpi-val" id="kBestMes">—</div><div class="kpi-sub" id="kBestSub">—</div></div>
+    <div class="kpi"><div class="kpi-label">Procesos distintos</div><div class="kpi-val" id="kProc">—</div><div class="kpi-sub">categorías de trabajo</div></div>
+  </div>
+
+  <!-- TEORICA -->
+  <div class="sec">Producción teórica en 11 hs · Base histórica para cotizaciones</div>
+  <div class="card">
+    <div class="card-title">Capacidad teórica por máquina (turno de 11 horas)</div>
+    <div class="card-sub">Calculada sobre el historial completo · <strong style="color:var(--gray-700)">Normal</strong> = mediana × 11 hs &nbsp;·&nbsp; <span style="color:var(--red);font-weight:700">Objetivo</span> = percentil 75 × 11 hs</div>
+    <div class="teo-grid" id="teoGrid"></div>
+  </div>
+
+  <!-- EVOLUCION -->
+  <div class="sec">Evolución temporal</div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Producción mensual por máquina</div>
+      <div class="card-sub">Barras apiladas · seleccioná máquinas en la leyenda</div>
+      <div style="height:260px"><canvas id="cEvol"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Eficiencia mensual (prod/hora)</div>
+      <div class="card-sub">Verde = sobre media global · Rojo = bajo media</div>
+      <div style="height:260px"><canvas id="cEfic"></canvas></div>
+    </div>
+  </div>
+
+  <!-- POR MÁQUINA -->
+  <div class="sec">Análisis por máquina</div>
+  <div class="g2b">
+    <div class="card">
+      <div class="card-title">Producción acumulada</div>
+      <div class="card-sub">Total de registros de producción por máquina</div>
+      <div style="height:280px"><canvas id="cMaqProd"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Eficiencia vs. media global</div>
+      <div class="card-sub">Verde = sobre la media · Rojo = bajo la media</div>
+      <div style="height:280px"><canvas id="cMaqEfic"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLA -->
+  <div class="sec">Indicadores detallados</div>
+  <div class="card">
+    <div class="card-title">Tabla de indicadores por máquina</div>
+    <div class="card-sub">Producción teórica basada en historial completo · ▲ verde = sobre media · ▼ rojo = bajo media</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Máquina</th><th>Registros</th><th>Horas</th>
+          <th>Prod/hora real (P50)</th>
+          <th>Teórica 11hs — normal</th>
+          <th>Teórica 11hs — objetivo</th>
+          <th>vs. media global</th>
+        </tr></thead>
+        <tbody id="tBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PROCESOS -->
+  <div class="sec">Procesos productivos</div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Top 15 procesos por frecuencia</div>
+      <div class="card-sub">Registros por tipo de proceso</div>
+      <div style="height:290px"><canvas id="cProc"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Distribución de horas por máquina</div>
+      <div class="card-sub">% de horas totales trabajadas</div>
+      <div style="height:290px"><canvas id="cDona"></canvas></div>
+    </div>
+  </div>
+</div><!-- /main -->
+
+<script>
+// ── CONFIGURACIÓN ──
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS4bhpkF-cqOdEavjdYk7_74UegQ3h1bUWwLA7l2XpcnEHcQtvdaNGCCt4IXbZtSzo27Y1OfuwkG4kC/pub?gid=0&single=true&output=csv";
+
+// Producción teórica calculada del historial (se actualiza automáticamente con más datos)
+const MAQ_STATS = {"ABROCHADORA":{"p50_pph":88.0,"p75_pph":106.7,"teorica_11h":968,"teorica_11h_buena":1173,"n":9},"ARMADORA":{"p50_pph":138.5,"p75_pph":198.2,"teorica_11h":1523,"teorica_11h_buena":2181,"n":16},"BALANCIN":{"p50_pph":419.2,"p75_pph":545.9,"teorica_11h":4612,"teorica_11h_buena":6005,"n":11},"CAJAS":{"p50_pph":281.8,"p75_pph":371.5,"teorica_11h":3099,"teorica_11h_buena":4086,"n":207},"COCIDO":{"p50_pph":211.9,"p75_pph":275.8,"teorica_11h":2331,"teorica_11h_buena":3033,"n":70},"FRESADORA":{"p50_pph":1200.0,"p75_pph":2117.5,"teorica_11h":13200,"teorica_11h_buena":23292,"n":7},"GUILLOTINA":{"p50_pph":666.7,"p75_pph":1200.0,"teorica_11h":7333,"teorica_11h_buena":13200,"n":254},"HORNO":{"p50_pph":682.2,"p75_pph":875.6,"teorica_11h":7505,"teorica_11h_buena":9632,"n":14},"MANUAL":{"p50_pph":246.9,"p75_pph":400.0,"teorica_11h":2716,"teorica_11h_buena":4400,"n":942},"MECANISMOS":{"p50_pph":255.6,"p75_pph":357.2,"teorica_11h":2812,"teorica_11h_buena":3929,"n":10},"TACOS":{"p50_pph":182.1,"p75_pph":259.0,"teorica_11h":2003,"teorica_11h_buena":2849,"n":19},"TAPAS NUEVA":{"p50_pph":390.2,"p75_pph":466.0,"teorica_11h":4292,"teorica_11h_buena":5126,"n":41},"TAPAS VIEJA":{"p50_pph":435.4,"p75_pph":516.7,"teorica_11h":4789,"teorica_11h_buena":5684,"n":26},"TRAZADORA":{"p50_pph":517.9,"p75_pph":619.9,"teorica_11h":5697,"teorica_11h_buena":6819,"n":9},"TROQUELADORA":{"p50_pph":371.4,"p75_pph":450.0,"teorica_11h":4086,"teorica_11h_buena":4950,"n":383}};
+
+const MNAMES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const REDSHADES = ['#C8102E','#3A3730','#747068','#9B0B22','#D44D5C','#5A5650','#B0ABA0','#7A0A1B','#E27080','#888078','#600818','#E05060','#DDDAD3','#F08090','#1E1C18'];
+
+const CHARTS = {};
+let RAW = [];
+let S = { maq:'', year:'', month:'', cliente:'' };
+
+// ── NORMALIZACIÓN DE PROCESOS ──
+function normProc(p) {
+  if (!p) return p;
+  const n = p.trim().replace(/  +/g,' ').toLowerCase();
+  if (/\b(1\s*er?\s*corte|primer\s*corte)\b/.test(n)) return 'Corte 1er pasada';
+  if (/\b2do\s*corte\b/.test(n)) return 'Corte 2da pasada';
+  if (/corte.*(carton|cartón).*papel|corte.*papel.*(carton|cartón)/.test(n)) return 'Corte cartón y papel';
+  if (/corte.*(carton|cartón)/.test(n) && !/papel/.test(n)) return 'Corte cartón';
+  if (/corte.*papel\s*int.*ext|corte.*papel\s*ext.*int/.test(n)) return 'Corte papel ext e int';
+  if (/corte.*papel\s*ext/.test(n)) return 'Corte papel exterior';
+  if (/corte.*papel\s*int/.test(n)) return 'Corte papel interior';
+  if (/corte.*cartulina/.test(n)) return 'Corte cartulina';
+  if (/^corte\s*$/.test(n)) return 'Corte';
+  if (/troqu.*(cart[oó]n).*(tyb|t\s*y\s*b)/.test(n)) return 'Troquelado cartón TyB';
+  if (/troqu.*(cart[oó]n).*tapa/.test(n)) return 'Troquelado cartón tapa';
+  if (/troqu.*(cart[oó]n).*base/.test(n)) return 'Troquelado cartón base';
+  if (/troqu.*(cart[oó]n)/.test(n)) return 'Troquelado cartón';
+  if (/troqu.*papel.*(tyb|t\s*y\s*b)/.test(n)) return 'Troquelado papel TyB';
+  if (/troqu.*papel.*tapa/.test(n)) return 'Troquelado papel tapa';
+  if (/troqu.*papel.*base/.test(n)) return 'Troquelado papel base';
+  if (/troqu.*papel.*cart[oó]n|troqu.*cart[oó]n.*papel/.test(n)) return 'Troquelado papel y cartón';
+  if (/troqu.*papel/.test(n)) return 'Troquelado papel';
+  if (/troqu.*cartulina/.test(n)) return 'Troquelado cartulina';
+  if (/troqu.*cuna/.test(n)) return 'Troquelado cuna';
+  if (/troqu.*goma/.test(n)) return 'Troquelado goma eva';
+  if (/troqu/.test(n)) return 'Troquelado';
+  if (/acop.*int.*tapa|acop.*tapa.*int/.test(n)) return 'Acoplado interior tapa';
+  if (/acop.*int.*base|acop.*base.*int/.test(n)) return 'Acoplado interior base';
+  if (/acop.*int.*(tyb|t\s*y\s*b)/.test(n)) return 'Acoplado interior TyB';
+  if (/acop.*(int|interior)/.test(n)) return 'Acoplado interior';
+  if (/acop.*(ext|exterior)/.test(n)) return 'Acoplado exterior';
+  if (/acop.*cartulina/.test(n)) return 'Acoplado cartulina';
+  if (/acop.*tapa/.test(n)) return 'Acoplado tapa';
+  if (/acop.*base/.test(n)) return 'Acoplado base';
+  if (/^acop/.test(n)) return 'Acoplado';
+  if (/cocid.*base|cocicid|cocer|coser/.test(n)) return 'Cocido bases';
+  if (/cocid.*tapa|cocudo/.test(n)) return 'Cocido tapas';
+  if (/cocid.*caja/.test(n)) return 'Cocido cajas';
+  if (/cocid.*goya/.test(n)) return 'Cocido goya';
+  if (/cocid/.test(n)) return 'Cocido';
+  if (/forr.*base/.test(n)) return 'Forrado bases';
+  if (/forr.*tapa/.test(n)) return 'Forrado tapas';
+  if (/forr.*goya/.test(n)) return 'Forrado goya';
+  if (/forr.*(ext|exterior)/.test(n)) return 'Forrado exterior';
+  if (/forr.*manual/.test(n)) return 'Forrado manual';
+  if (/forr/.test(n)) return 'Forrado';
+  if (/peg.*int.*tapa|peg.*tapa.*int/.test(n)) return 'Pegado interior tapa';
+  if (/peg.*int.*base|peg.*base.*int/.test(n)) return 'Pegado interior base';
+  if (/peg.*int.*lateral|peg.*lateral.*int/.test(n)) return 'Pegado interior laterales';
+  if (/peg.*(interior|int\b)/.test(n)) return 'Pegado interior';
+  if (/peg.*ext.*tapa|peg.*tapa.*ext/.test(n)) return 'Pegado exterior tapa';
+  if (/peg.*ext.*base|peg.*base.*ext/.test(n)) return 'Pegado exterior base';
+  if (/peg.*(exterior|ext\b)/.test(n)) return 'Pegado exterior';
+  if (/peg.*tapa/.test(n)) return 'Pegado tapas';
+  if (/peg.*manual/.test(n)) return 'Pegado manual';
+  if (/peg.*taco/.test(n)) return 'Pegado tacos';
+  if (/peg.*lateral/.test(n)) return 'Pegado laterales';
+  if (/pegado/.test(n)) return 'Pegado';
+  if (/coloc.*(mecanismo|mecanismos)|coocac.*mecanismo/.test(n)) return 'Colocación mecanismo';
+  if (/coloc.*taco/.test(n)) return 'Colocación tacos';
+  if (/coloc.*gancho/.test(n)) return 'Colocación gancho';
+  if (/coloc.*broche/.test(n)) return 'Colocación broche';
+  if (/coloc.*cinta/.test(n)) return 'Colocación cinta';
+  if (/coloc.*u[ñn]ero/.test(n)) return 'Colocación uñero';
+  if (/armado.*tapa/.test(n)) return 'Armado tapas';
+  if (/armado.*base/.test(n)) return 'Armado bases';
+  if (/armado.*caja/.test(n)) return 'Armado cajas';
+  if (/uni[oó]n/.test(n)) return 'Unión tapa y base';
+  if (/doblado.*sold|sold.*doblado/.test(n)) return 'Doblado y soldado';
+  if (/doblado.*gancho/.test(n)) return 'Doblado y colocación gancho';
+  if (/doblado/.test(n)) return 'Doblado';
+  if (/soldado|sellado|termosell/.test(n)) return 'Soldado/sellado';
+  if (/fres/.test(n)) return 'Fresado';
+  if (/trazad/.test(n)) return 'Trazado';
+  if (/despunt|revisi/.test(n)) return 'Despunte y revisión';
+  if (/descarton|decarton/.test(n)) return 'Descartonado';
+  if (/cuño|bajo\s*relieve/.test(n)) return 'Cuño/bajo relieve';
+  if (/encintad|cinta\s*azul/.test(n)) return 'Encintado';
+  if (/embolsad/.test(n)) return 'Embolsado';
+  if (/abrochad/.test(n)) return 'Abrochado';
+  if (/horno/.test(n)) return 'Horno';
+  if (/u[ñn]ero/.test(n)) return 'Uñero';
+  if (/embalad|embalaje/.test(n)) return 'Embalado';
+  if (/refilado/.test(n)) return 'Refilado';
+  return p.trim();
+}
+
+function normMaq(m) {
+  if (!m || m.trim() === '') return 'MANUAL';
+  const u = m.trim().toUpperCase();
+  if (u === 'TACO') return 'TACOS';
+  return u;
+}
+
+// ── PARSE CSV ──
+function parseCSV(csvText) {
+  const result = Papa.parse(csvText, { header: true, skipEmptyLines: true, dynamicTyping: false });
+  const rows = [];
+  result.data.forEach(r => {
+    // Detectar columnas con nombres alternativos
+    const fecha = r['FECHA'] || r['Fecha'] || r['fecha'] || '';
+    const cliente = r['CLIENTE'] || r['Cliente'] || '';
+    const detalle = r['DETALLE'] || r['Detalle'] || '';
+    const proceso = r['PROCESO'] || r['Proceso'] || '';
+    const maquina = r['MÁQUINA'] || r['MAQUINA'] || r['Maquina'] || r['Máquina'] || '';
+    const operarios = parseFloat(r['CANT OPERARIOS'] || r['Operarios'] || '') || null;
+    const prod = parseFloat(r['PRODUCCIÓN'] || r['PRODUCCION'] || r['Producción'] || '') || 0;
+    const horas = parseFloat(r['HORAS'] || r['Horas'] || '') || 0;
+    const pph = parseFloat(r['PRODU POR HORA'] || r['PROD POR HORA'] || r['Prod/hora'] || '') || 0;
+
+    if (!fecha || prod === 0) return;
+
+    // Parsear fecha — puede venir como número serial de Excel o string
+    let fechaStr = '';
+    const fNum = parseFloat(fecha);
+    if (!isNaN(fNum) && fNum > 40000) {
+      // Excel serial date
+      const d = new Date(Math.round((fNum - 25569) * 86400 * 1000));
+      fechaStr = d.toISOString().slice(0,10);
+    } else {
+      // Intentar parsear string — formatos DD/MM/YYYY o YYYY-MM-DD
+      const parts = fecha.split(/[\/\-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          fechaStr = fecha; // YYYY-MM-DD
+        } else {
+          // DD/MM/YYYY
+          fechaStr = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+        }
+      } else {
+        fechaStr = fecha;
+      }
+    }
+
+    rows.push({
+      FECHA: fechaStr,
+      CLIENTE: cliente,
+      DETALLE: detalle,
+      PROCESO_NORM: normProc(proceso),
+      MÁQUINA: normMaq(maquina),
+      OPERARIOS: operarios,
+      PRODUCCIÓN: prod,
+      HORAS: horas,
+      PROD_POR_HORA: pph > 0 ? pph : (horas > 0 ? prod / horas : 0)
+    });
+  });
+  return rows;
+}
+
+// ── LOAD DATA ──
+async function loadData() {
+  const badge = document.getElementById('statusBadge');
+  const txt = document.getElementById('statusTxt');
+  badge.className = 'hstatus';
+  txt.textContent = 'Actualizando…';
+
+  try {
+    // Usar un proxy CORS para evitar restricciones
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(CSV_URL);
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const csv = await resp.text();
+    if (!csv || csv.length < 100) throw new Error('Respuesta vacía');
+
+    RAW = parseCSV(csv);
+    if (RAW.length === 0) throw new Error('No se encontraron registros válidos');
+
+    badge.className = 'hstatus ok';
+    txt.textContent = 'En vivo · ' + RAW.length + ' registros';
+
+    initFilters();
+    render();
+
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'flex';
+
+    const errB = document.getElementById('errBanner');
+    errB.style.display = 'none';
+
+  } catch(e) {
+    console.error(e);
+    badge.className = 'hstatus err';
+    txt.textContent = 'Error de conexión';
+
+    const errB = document.getElementById('errBanner');
+    errB.style.display = 'block';
+    errB.textContent = '⚠ No se pudo cargar el Google Sheet: ' + e.message + '. Verificá que el Sheet esté publicado como CSV (Archivo → Compartir → Publicar en la web → CSV).';
+
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'flex';
+  }
+}
+
+// ── FILTERS ──
+function initFilters() {
+  const maqs = [...new Set(RAW.map(r=>r.MÁQUINA))].sort();
+  const clientes = [...new Set(RAW.map(r=>r.CLIENTE).filter(Boolean))].sort();
+  const years = [...new Set(RAW.map(r=>r.FECHA.slice(0,4)).filter(Boolean))].sort();
+  const months = [{v:'1',l:'Enero'},{v:'2',l:'Febrero'},{v:'3',l:'Marzo'},{v:'4',l:'Abril'},{v:'5',l:'Mayo'},{v:'6',l:'Junio'},{v:'7',l:'Julio'},{v:'8',l:'Agosto'},{v:'9',l:'Septiembre'},{v:'10',l:'Octubre'},{v:'11',l:'Noviembre'},{v:'12',l:'Diciembre'}];
+
+  function fill(id, items, valFn, lblFn) {
+    const sel = document.getElementById(id);
+    const first = sel.options[0];
+    sel.innerHTML = ''; sel.appendChild(first);
+    items.forEach(i => { const o=document.createElement('option'); o.value=valFn(i); o.textContent=lblFn(i); sel.appendChild(o); });
+  }
+  fill('fMaq', maqs, m=>m, m=>m);
+  fill('fYear', years, y=>y, y=>y);
+  fill('fMonth', months, m=>m.v, m=>m.l);
+  fill('fCliente', clientes, c=>c, c=>c);
+
+  document.getElementById('fMaq').onchange = e => { S.maq=e.target.value; render(); };
+  document.getElementById('fYear').onchange = e => { S.year=e.target.value; render(); };
+  document.getElementById('fMonth').onchange = e => { S.month=e.target.value; render(); };
+  document.getElementById('fCliente').onchange = e => { S.cliente=e.target.value; render(); };
+}
+
+function resetF() {
+  S={maq:'',year:'',month:'',cliente:''};
+  ['fMaq','fYear','fMonth','fCliente'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+
+function fd() {
+  return RAW.filter(r => {
+    if(S.maq && r.MÁQUINA!==S.maq) return false;
+    if(S.cliente && r.CLIENTE!==S.cliente) return false;
+    const d = new Date(r.FECHA);
+    if(S.year && String(d.getFullYear())!==S.year) return false;
+    if(S.month && String(d.getMonth()+1)!==S.month) return false;
+    return true;
+  });
+}
+
+// ── HELPERS ──
+function fmt(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return Math.round(n).toLocaleString('es-AR');}
+function fmtN(n){return Math.round(n).toLocaleString('es-AR');}
+function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0;}
+function p50(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function p75(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length*.75)];}
+
+function mkChart(id,type,data,opts){
+  if(CHARTS[id])CHARTS[id].destroy();
+  CHARTS[id]=new Chart(document.getElementById(id).getContext('2d'),{type,data,options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10}},
+    scales:{},
+    ...opts
+  }});
+}
+function darkAxes(yCb){
+  return {
+    x:{grid:{color:'rgba(0,0,0,.06)'},ticks:{color:'#747068',font:{family:'Barlow',size:11}}},
+    y:{grid:{color:'rgba(0,0,0,.06)'},ticks:{color:'#747068',font:{family:'Barlow',size:11},callback:yCb||(v=>fmt(v))}}
+  };
+}
+
+// ── RENDER ──
+function render() {
+  const data = fd();
+  document.getElementById('fCount').textContent = data.length.toLocaleString('es-AR') + ' registros';
+  const dates = data.map(r=>r.FECHA).filter(Boolean).sort();
+  if(dates.length) document.getElementById('lastReg').textContent = 'Último registro: '+dates[dates.length-1];
+  renderKPIs(data); renderTeorica(data); renderEvol(data); renderEfic(data);
+  renderMaqProd(data); renderMaqEfic(data); renderTabla(data); renderProc(data); renderDona(data);
+}
+
+function renderKPIs(data) {
+  const horas = data.reduce((s,r)=>s+(r.HORAS||0),0);
+  const pphV = data.filter(r=>r.PROD_POR_HORA>0).map(r=>r.PROD_POR_HORA);
+  document.getElementById('kReg').textContent = data.length.toLocaleString('es-AR');
+  document.getElementById('kClientes').textContent = new Set(data.map(r=>r.CLIENTE).filter(Boolean)).size + ' clientes distintos';
+  document.getElementById('kHoras').textContent = fmt(horas);
+  document.getElementById('kPPH').textContent = Math.round(avg(pphV)).toLocaleString('es-AR');
+  const byM={};
+  data.forEach(r=>{ const m=r.FECHA?r.FECHA.slice(0,7):null; if(!m)return; byM[m]=(byM[m]||0)+(r.PRODUCCIÓN||0); });
+  const sorted=Object.entries(byM).sort((a,b)=>b[1]-a[1]);
+  if(sorted.length){
+    const[ym,val]=sorted[0]; const[y,mo]=ym.split('-');
+    document.getElementById('kBestMes').textContent = MNAMES[parseInt(mo)]+" '"+y.slice(2);
+    document.getElementById('kBestSub').textContent = fmt(val)+' u. producidas';
+  }
+  document.getElementById('kProc').textContent = new Set(data.map(r=>r.PROCESO_NORM).filter(Boolean)).size;
+}
+
+function renderTeorica(data) {
+  // Recalcular con datos actuales + combinar con histórico
+  const byMaq = {};
+  data.forEach(r => {
+    const m = r.MÁQUINA;
+    if (!byMaq[m]) byMaq[m] = [];
+    if (r.PROD_POR_HORA > 0) byMaq[m].push(r.PROD_POR_HORA);
+  });
+
+  const grid = document.getElementById('teoGrid');
+  grid.innerHTML = '';
+  const allMaqs = new Set([...Object.keys(MAQ_STATS), ...Object.keys(byMaq)]);
+  const order = [...allMaqs].sort((a,b) => {
+    const na = (byMaq[a]||[]).length; const nb = (byMaq[b]||[]).length;
+    return nb - na;
+  });
+
+  order.forEach(maq => {
+    const vals = byMaq[maq] || [];
+    const base = MAQ_STATS[maq] || {};
+    const p50v = vals.length >= 5 ? p50(vals) : base.p50_pph || 0;
+    const p75v = vals.length >= 5 ? p75(vals) : base.p75_pph || 0;
+    const t11 = Math.round(p50v * 11);
+    const t11b = Math.round(p75v * 11);
+    const n = vals.length || base.n || 0;
+    if (!t11) return;
+    grid.innerHTML += `
+      <div class="teo-card">
+        <div class="teo-maq">${maq}</div>
+        <div class="teo-row"><span class="teo-lbl">Normal (mediana × 11h)</span><span class="teo-val">${fmtN(t11)}<small style="font-size:11px;color:var(--muted)"> u.</small></span></div>
+        <div class="teo-row"><span class="teo-lbl">Objetivo (P75 × 11h)</span><span class="teo-val-obj">${fmtN(t11b)}<small style="font-size:10px;color:var(--red)"> u.</small></span></div>
+        <div class="teo-note">P50=${fmtN(p50v)} u/h · P75=${fmtN(p75v)} u/h · ${n} registros</div>
+      </div>`;
+  });
+}
+
+function renderEvol(data) {
+  const byMM={},months=new Set(),maqs=new Set();
+  data.forEach(r=>{
+    const m=r.FECHA?r.FECHA.slice(0,7):null; if(!m)return;
+    months.add(m); maqs.add(r.MÁQUINA);
+    if(!byMM[m])byMM[m]={};
+    byMM[m][r.MÁQUINA]=(byMM[m][r.MÁQUINA]||0)+(r.PRODUCCIÓN||0);
+  });
+  const labels=[...months].sort().map(l=>{const[y,mo]=l.split('-');return MNAMES[parseInt(mo)]+" '"+y.slice(2);});
+  const maqList=[...maqs].sort();
+  const datasets=maqList.map((maq,i)=>({
+    label:maq,
+    data:[...months].sort().map(m=>(byMM[m]&&byMM[m][maq])||0),
+    backgroundColor:REDSHADES[i%REDSHADES.length],borderRadius:2,stack:'a'
+  }));
+  mkChart('cEvol','bar',{labels,datasets},{
+    scales:darkAxes(),
+    plugins:{
+      legend:{display:true,position:'bottom',labels:{color:'#747068',font:{size:10},boxWidth:10,padding:8}},
+      tooltip:{mode:'index',intersect:false,backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10,callbacks:{label:ctx=>' '+ctx.dataset.label+': '+fmtN(ctx.raw)+' u.'}}
+    }
+  });
+}
+
+function renderEfic(data) {
+  const byM={};
+  data.forEach(r=>{
+    const m=r.FECHA?r.FECHA.slice(0,7):null; if(!m||!r.PROD_POR_HORA)return;
+    if(!byM[m])byM[m]=[];byM[m].push(r.PROD_POR_HORA);
+  });
+  const labels=Object.keys(byM).sort().map(l=>{const[y,mo]=l.split('-');return MNAMES[parseInt(mo)]+" '"+y.slice(2);});
+  const vals=Object.keys(byM).sort().map(l=>avg(byM[l]));
+  const media=avg(vals);
+  mkChart('cEfic','line',{
+    labels,
+    datasets:[
+      {data:vals,borderColor:'#C8102E',backgroundColor:'rgba(200,16,46,.08)',borderWidth:2,fill:true,tension:.3,pointBackgroundColor:vals.map(v=>v>=media?'#16a34a':'#C8102E'),pointRadius:4},
+      {data:labels.map(()=>media),borderColor:'rgba(200,16,46,.3)',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false}
+    ]
+  },{
+    scales:darkAxes(v=>Math.round(v)+' u/h'),
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10,callbacks:{label:ctx=>' '+Math.round(ctx.raw)+' u/h'}}}
+  });
+}
+
+function renderMaqProd(data) {
+  const by={};
+  data.forEach(r=>{ by[r.MÁQUINA]=(by[r.MÁQUINA]||0)+(r.PRODUCCIÓN||0); });
+  const sorted=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  mkChart('cMaqProd','bar',{
+    labels:sorted.map(e=>e[0]),
+    datasets:[{data:sorted.map(e=>e[1]),backgroundColor:sorted.map((_,i)=>REDSHADES[i%REDSHADES.length]),borderRadius:3}]
+  },{
+    indexAxis:'y',
+    scales:{x:{grid:{color:'rgba(0,0,0,.06)'},ticks:{color:'#747068',font:{size:11},callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{color:'#1E1C18',font:{size:12,weight:'600'}}}},
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10,callbacks:{label:ctx=>' '+fmtN(ctx.raw)+' u.'}}}
+  });
+}
+
+function renderMaqEfic(data) {
+  const by={};
+  data.forEach(r=>{ if(!by[r.MÁQUINA])by[r.MÁQUINA]=[]; if(r.PROD_POR_HORA>0)by[r.MÁQUINA].push(r.PROD_POR_HORA); });
+  const allPPH=data.filter(r=>r.PROD_POR_HORA>0).map(r=>r.PROD_POR_HORA);
+  const media=avg(allPPH);
+  const sorted=Object.entries(by).map(([m,v])=>([m,avg(v)])).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
+  mkChart('cMaqEfic','bar',{
+    labels:sorted.map(e=>e[0]),
+    datasets:[
+      {data:sorted.map(e=>e[1]),backgroundColor:sorted.map(e=>e[1]>=media?'rgba(22,163,74,.75)':'rgba(200,16,46,.75)'),borderRadius:3,order:2},
+      {type:'line',data:sorted.map(()=>media),borderColor:'rgba(0,0,0,.4)',borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false,order:1}
+    ]
+  },{
+    indexAxis:'y',
+    scales:{x:{grid:{color:'rgba(0,0,0,.06)'},ticks:{color:'#747068',font:{size:11},callback:v=>Math.round(v)+' u/h'}},y:{grid:{display:false},ticks:{color:'#1E1C18',font:{size:12,weight:'600'}}}},
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10,callbacks:{label:ctx=>' '+Math.round(ctx.raw)+' u/h'}}}
+  });
+}
+
+function renderTabla(data) {
+  const by={};
+  data.forEach(r=>{
+    const m=r.MÁQUINA; if(!by[m])by[m]={prod:0,h:0,pphArr:[],n:0};
+    by[m].prod+=(r.PRODUCCIÓN||0); by[m].h+=(r.HORAS||0);
+    if(r.PROD_POR_HORA>0)by[m].pphArr.push(r.PROD_POR_HORA);
+    by[m].n++;
+  });
+  const allPPH=data.filter(r=>r.PROD_POR_HORA>0).map(r=>r.PROD_POR_HORA);
+  const media=avg(allPPH);
+  const rows=Object.entries(by).map(([m,v])=>({m,...v,pphAvg:p50(v.pphArr)})).sort((a,b)=>b.n-a.n);
+  const tb=document.getElementById('tBody'); tb.innerHTML='';
+  rows.forEach(r=>{
+    const ms=MAQ_STATS[r.m];
+    const liveP50=r.pphArr.length>=5?p50(r.pphArr):(ms?ms.p50_pph:0);
+    const liveP75=r.pphArr.length>=5?p75(r.pphArr):(ms?ms.p75_pph:0);
+    const t11=Math.round(liveP50*11); const t11b=Math.round(liveP75*11);
+    const diff=r.pphAvg-media; const dp=media>0?(diff/media*100).toFixed(1):0;
+    const cls=diff>5?'vs-up':diff<-5?'vs-dn':'vs-ok';
+    const arr=diff>5?'▲':diff<-5?'▼':'—';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="maq-badge">${r.m}</span></td><td>${r.n.toLocaleString('es-AR')}</td><td>${Math.round(r.h).toLocaleString('es-AR')}</td><td>${fmtN(r.pphAvg)} u/h</td><td style="font-weight:600">${t11?fmtN(t11)+' u.':'—'}</td><td style="color:var(--red);font-weight:700">${t11b?fmtN(t11b)+' u.':'—'}</td><td class="${cls}">${arr} ${Math.abs(dp)}%</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function renderProc(data) {
+  const by={};
+  data.forEach(r=>{ if(!r.PROCESO_NORM)return; by[r.PROCESO_NORM]=(by[r.PROCESO_NORM]||0)+1; });
+  const sorted=Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  mkChart('cProc','bar',{
+    labels:sorted.map(e=>e[0].length>35?e[0].slice(0,33)+'…':e[0]),
+    datasets:[{data:sorted.map(e=>e[1]),backgroundColor:sorted.map((_,i)=>REDSHADES[i%REDSHADES.length]),borderRadius:3}]
+  },{
+    indexAxis:'y',
+    scales:{x:{grid:{color:'rgba(0,0,0,.06)'},ticks:{color:'#747068',font:{size:11}}},y:{grid:{display:false},ticks:{color:'#1E1C18',font:{size:11}}}},
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10,callbacks:{label:ctx=>' '+ctx.raw+' registros'}}}
+  });
+}
+
+function renderDona(data) {
+  const by={};
+  data.forEach(r=>{ by[r.MÁQUINA]=(by[r.MÁQUINA]||0)+(r.HORAS||0); });
+  const sorted=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  const TOP=8; const labels=sorted.slice(0,TOP).map(e=>e[0]); const vals=sorted.slice(0,TOP).map(e=>e[1]);
+  if(sorted.length>TOP){labels.push('Otros');vals.push(sorted.slice(TOP).reduce((s,e)=>s+e[1],0));}
+  mkChart('cDona','doughnut',{
+    labels,datasets:[{data:vals,backgroundColor:[...REDSHADES,'#C8C6C0'],borderColor:'#F5F4F2',borderWidth:2}]
+  },{
+    plugins:{
+      legend:{display:true,position:'right',labels:{color:'#747068',font:{size:10,family:'Barlow'},boxWidth:10,padding:8}},
+      tooltip:{backgroundColor:'#1E1C18',borderColor:'#3A3730',borderWidth:1,titleColor:'#B0ABA0',bodyColor:'#F5F4F2',padding:10,callbacks:{label:ctx=>' '+fmt(ctx.raw)+' hs'}}
+    }
+  });
+}
+
+// ── BOOT ──
+loadData();
+</script>
+</body>
+</html>
